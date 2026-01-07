@@ -1,0 +1,5 @@
+﻿<Project>
+  <PropertyGroup>
+    <OutputPath>$(AppData)/OuterWildsModManager/OWML/Mods/MDJ287.TasTools</OutputPath>
+  </PropertyGroup>
+</Project>
