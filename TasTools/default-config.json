@@ -1,4 +1,28 @@
 {
   "$schema": "https://raw.githubusercontent.com/ow-mods/owml/master/schemas/config_schema.json",
-  "enabled": true
-}
+  "enabled": true,
+  "settings": {
+    "chumpSpeedZ": {
+      "title": "Chump Vector Forward",
+      "type": "number",
+      "value": 1000,
+      "tooltip": "tooltip"
+    },
+    "chumpSpeedX": {
+      "title": "Chump Vector Sideways",
+      "type": "number",
+      "value": 0,
+      "tooltip": "tooltip"
+    },
+    "doRngManip": {
+      "title": "Force RNG Seed",
+      "type": "toggle",
+      "value": false
+    },
+    "rngSeed": {
+      "title": "RNG Seed",
+      "type": "number",
+      "value": 123
+    }
+  }
+  }

@@ -32,7 +32,10 @@ namespace TasTools
         public static IInputCommands[] lastFrameCommands = [];
 
         public static int chumpFrame = -1;
-        public static float chumpVelocity = 1000f;
+        public static Vector2 chumpVelocity;
+
+        private bool forceRngSeed = false;
+        private int rngSeed = 123;
 
         public ScreenPrompt tasStartPrompt;
         private ScreenPrompt framePrompt;
@@ -57,6 +60,13 @@ namespace TasTools
             GlobalMessenger.AddListener("GamePaused", new Callback(this.OnGamePaused));
             GlobalMessenger.AddListener("GameUnpaused", new Callback(this.OnGameUnpaused));
             GlobalMessenger.AddListener("WakeUp", new Callback(this.OnWakeUp));
+        }
+
+        public override void Configure(IModConfig config)
+        {
+            chumpVelocity = new(config.GetSettingsValue<float>("chumpSpeedX"), config.GetSettingsValue<float>("chumpSpeedZ"));
+            forceRngSeed = config.GetSettingsValue<bool>("doRngManip");
+            rngSeed = config.GetSettingsValue<int>("rngSeed");
         }
 
         // load
@@ -141,7 +151,7 @@ namespace TasTools
             }
             if (Keyboard.current.slashKey.wasPressedThisFrame)
             {
-                StopTasReplay();
+                if (isReplayingTas) StopTasReplay();
                 currentTasFrame = 0;
                 forceLoadFromTitle = true;
                 LoadManager.ReloadSceneImmediate();

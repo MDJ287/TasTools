@@ -21,7 +21,7 @@ namespace TasTools
             {
                 if (TasTools.chumpFrame == TasTools.GetFrame() && command == InputLibrary.moveXZ)
                 {
-                    __result = new(0, TasTools.chumpVelocity);
+                    __result = TasTools.chumpVelocity;
                     return false;
                 }
                 return true;
