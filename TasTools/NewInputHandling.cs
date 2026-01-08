@@ -17,7 +17,15 @@ namespace TasTools
         private static bool OWInput_GetAxisValue(IInputCommands command, out Vector2 __result)
         {
             __result = Vector2.zero;
-            if (!TasTools.OverrideControls()) return true;
+            if (!TasTools.OverrideControls())
+            {
+                if (TasTools.chumpFrame == TasTools.GetFrame() && command == InputLibrary.moveXZ)
+                {
+                    __result = new(0, TasTools.chumpVelocity);
+                    return false;
+                }
+                return true;
+            }
             if (!TasTools.AreInputsAllowed()) return false;
             if (command == InputLibrary.look)
             {
@@ -43,14 +51,6 @@ namespace TasTools
             {
                 __result = true;
             }
-            foreach (IInputCommands input in TasTools.RePressedCommands)
-            {
-                if (input == command)
-                {
-                    __result = true;
-                    return false;
-                }
-            }
             foreach (IInputCommands input in TasTools.inputCommands)
             {
                 foreach (IInputCommands prevInput in TasTools.lastFrameCommands)
@@ -69,14 +69,6 @@ namespace TasTools
             __result = false;
             if (!TasTools.OverrideControls()) return true;
             if (!TasTools.AreInputsAllowed()) return false;
-            foreach (IInputCommands input in TasTools.RePressedCommands)
-            {
-                if (input == command)
-                {
-                    __result = true;
-                    return false;
-                }
-            }
             foreach (IInputCommands input in TasTools.lastFrameCommands)
             {
                 foreach (IInputCommands newInput in TasTools.inputCommands)
@@ -115,6 +107,19 @@ namespace TasTools
             {
                 if (input == command) __result = true;
             }
+            return false;
+        }
+
+        // VALUE
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(OWInput), nameof(OWInput.GetValue))]
+        private static bool OWInput_GetValue(IInputCommands command, out float __result)
+        {
+            __result = 0f;
+            if (!TasTools.OverrideControls()) return true;
+            if (!TasTools.AreInputsAllowed()) return false;
+            // TODO
             return false;
         }
     }

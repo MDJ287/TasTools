@@ -13,7 +13,7 @@ namespace TasTools
         public static TasTools Instance;
         public static IModConsole console;
 
-        StreamReader fileReader;
+        StreamReader inputsFileReader;
 
         public bool isReplayingTas = false;
         public int currentTasFrame = 0;
@@ -23,7 +23,6 @@ namespace TasTools
         public bool forceLoadFromTitle = false;
 
         private bool addFramePrompt = true;
-        private bool waitForLoading = false;
 
         public int remainingFramesOfSameInputs = 0;
 
@@ -31,10 +30,13 @@ namespace TasTools
         public static Vector2 lookAxis = new(0,0);
         public static IInputCommands[] inputCommands = [];
         public static IInputCommands[] lastFrameCommands = [];
-        public static IInputCommands[] RePressedCommands = [];
+
+        public static int chumpFrame = -1;
+        public static float chumpVelocity = 1000f;
 
         public ScreenPrompt tasStartPrompt;
         private ScreenPrompt framePrompt;
+        private ScreenPrompt tasExitPrompt;
 
         // start
 
@@ -68,6 +70,7 @@ namespace TasTools
             {
                 addFramePrompt = true;
                 isAsleep = true;
+                Random.InitState(123);
             }
         }
 
@@ -95,7 +98,7 @@ namespace TasTools
             if (addFramePrompt && Locator.GetPromptManager() != null)
             {
                 framePrompt = new ScreenPrompt("FRAME: 0");
-                Locator.GetPromptManager().AddScreenPrompt(framePrompt, PromptPosition.UpperRight, true);
+                Locator.GetPromptManager().AddScreenPrompt(framePrompt, PromptPosition.BottomCenter, true);
                 addFramePrompt = false;
             }
             if (isInSolarSystem && !isGamePaused && Time.time > 0)
@@ -110,35 +113,43 @@ namespace TasTools
 
         public void Update()
         {
+            if (chumpFrame < currentTasFrame)
+            {
+                chumpFrame = -1;
+            }
             if (isInSolarSystem)
             {
                 Locator.GetPromptManager().UpdateText(framePrompt, "FRAME: " + currentTasFrame);
                 framePrompt.SetVisibility(true);
             }
-            if (OWInput.SharedInputManager.IsNewlyPressed(InputLibrary.cancel))
+            // change key to setting later?
+            if (Keyboard.current.qKey.wasPressedThisFrame)
             {
                 if (isReplayingTas)
                 {
-                    isReplayingTas = false;
+                    StopTasReplay();
                 }
                 else if (isAsleep)
                 {
-                    fileReader = new("OuterWilds_Data/Managed/OWML._MDJ287.inputs.txt");
+                    inputsFileReader = new("OuterWilds_Data/Managed/OWML._MDJ287.inputs.txt");
                     isReplayingTas = true;
                     remainingFramesOfSameInputs = 0;
                     lastFrameCommands = [];
-                    RePressedCommands = [];
+                    tasExitPrompt = Prompts.CreatePrompt("Stop TAS Playback", KeyCode.Q);
+                    Locator.GetPromptManager().AddScreenPrompt(tasExitPrompt, PromptPosition.BottomCenter, true);
                 }
             }
-            // change to setting later
             if (Keyboard.current.slashKey.wasPressedThisFrame)
             {
-                fileReader.Close();
-                isReplayingTas = false;
+                StopTasReplay();
                 currentTasFrame = 0;
                 forceLoadFromTitle = true;
                 LoadManager.ReloadSceneImmediate();
                 forceLoadFromTitle = false;
+            }
+            if (Keyboard.current.commaKey.wasPressedThisFrame)
+            {
+                chumpFrame = currentTasFrame + 1;
             }
         }
 
@@ -156,11 +167,10 @@ namespace TasTools
                 string[] data = [""];
                 while (data[0].Length == 0 || data[0][0] == '#')
                 {
-                    data = fileReader.ReadLine()?.Split('\t');
+                    data = inputsFileReader.ReadLine()?.Split('\t');
                     if (data == null)
                     {
-                        fileReader.Close();
-                        isReplayingTas = false;
+                        StopTasReplay();
                         return;
                     }
                 }
@@ -168,16 +178,21 @@ namespace TasTools
                 // first 3 columns
 
                 remainingFramesOfSameInputs = int.Parse(data[0]);
-                string[] vectorStr = data[1].Split(',');
-                walkAxis = new(float.Parse(vectorStr[0]), float.Parse(vectorStr[1]));
-                vectorStr = data[2].Split(',');
-                lookAxis = new(float.Parse(vectorStr[0]), float.Parse(vectorStr[1]));
+                string[] vectorStr;
+                if (!data[1].Equals("."))
+                {
+                    vectorStr = data[1].Split(',');
+                    walkAxis = new(float.Parse(vectorStr[0]), float.Parse(vectorStr[1]));
+                }
+                if (!data[2].Equals("."))
+                {
+                    vectorStr = data[2].Split(',');
+                    lookAxis = new(float.Parse(vectorStr[0]), float.Parse(vectorStr[1]));
+                }
 
                 int j = 0;
-                int jRePressed = 0;
 
                 inputCommands = new IInputCommands[data.Length-3];
-                RePressedCommands = new IInputCommands[data.Length-3];
 
                 // misc buttons
 
@@ -187,21 +202,21 @@ namespace TasTools
                     {
                         inputCommands[j] = InputLibrary.jump;
                     }
-                    else if (data[i].Equals("+jump"))
-                    {
-                        inputCommands[j] = InputLibrary.jump;
-                        for (int k=0; k<lastFrameCommands.Length; k++)
-                        {
-                            if (lastFrameCommands[k].Equals(InputLibrary.jump))
-                            {
-                                RePressedCommands[jRePressed] = InputLibrary.jump;
-                                jRePressed++;
-                            }
-                        }
-                    }
                     else if (data[i].Equals("interact"))
                     {
                         inputCommands[j] = InputLibrary.interact;
+                    }
+                    else if (data[i].Equals("cancel"))
+                    {
+                        inputCommands[j] = InputLibrary.cancel;
+                    }
+                    else if (data[i].Equals("launch"))
+                    {
+                        inputCommands[j] = InputLibrary.probeLaunch;
+                    }
+                    else if (data[i].Equals("recall"))
+                    {
+                        inputCommands[j] = InputLibrary.probeRetrieve;
                     }
                     else
                     {
@@ -210,6 +225,13 @@ namespace TasTools
                     j++;
                 }
             }
+        }
+
+        private static void StopTasReplay()
+        {
+            Instance.isReplayingTas = false;
+            Locator.GetPromptManager().RemoveScreenPrompt(Instance.tasExitPrompt);
+            Instance.inputsFileReader.Close();
         }
 
         // accessors

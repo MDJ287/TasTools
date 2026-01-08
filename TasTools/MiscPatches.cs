@@ -8,8 +8,10 @@ namespace TasTools
 {
 
     [HarmonyPatch]
-    public class SceneLoading
+    public class MiscPatches
     {
+        // scene loading
+
         [HarmonyPostfix]
         [HarmonyPatch(typeof(LoadManager), nameof(LoadManager.ReloadSceneImmediate))]
         private static void LoadManager_ReloadSceneImmediate()
@@ -19,6 +21,14 @@ namespace TasTools
                 LoadManager.s_previousScene = OWScene.TitleScreen;
             }
         }
-    }
 
+        // qm collapse
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(QuantumMoon), nameof(QuantumMoon.ChangeQuantumState))]
+        private static void QuantumMoon_ChangeQuantumState()
+        {
+            TasTools.console.WriteLine($"{TasTools.GetFrame()}: QUANTUM MOON STATE CHANGING!", MessageType.Info);
+        }
+    }
 }
